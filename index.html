@@ -9,16 +9,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- 
-    Chosen Palette: Warm Neutrals (Slate, Stone, Amber)
-    Application Structure Plan: The application is designed as a single-page dashboard for intuitive exploration. It starts with high-level summary cards (total cost, potential savings) for immediate impact. A central interactive chart visualizes cost distribution by work category, allowing users to see the biggest cost drivers at a glance. The core of the application is a detailed, filterable, and sortable table of all estimate items. This structure enables a top-down analysis: from the overall picture to category-specific costs, down to individual line items. This is more user-friendly than the linear report, as it allows users to focus on areas of greatest concern (e.g., the most overpriced items) quickly and efficiently.
-    Visualization & Content Choices:
-    - Key Metrics (Total Cost, Potential Savings): Goal is to inform instantly. Presented as large, clear stat cards (HTML/Tailwind) for high visibility.
-    - Cost by Category: Goal is to compare cost distribution. An interactive doughnut chart (Chart.js/Canvas) is used to show the proportion of total costs for each work category. This visual format is excellent for comparing parts of a whole and is more engaging than a simple list. Interaction (hover tooltips) provides exact figures.
-    - Detailed Estimate Analysis: Goal is to organize and compare every line item. A dynamic, interactive table (HTML/Tailwind + JS) is the best choice. It allows users to sort by any column (e.g., by cost, by price difference) and filter by status ('Завышена', 'Занижена', 'В рынке'). This empowers the user to perform their own analysis and easily find the most problematic items identified in the report. This is far more powerful than a static table.
-    - Recommendations: Goal is to inform and guide. Presented as a clear, concise text block (HTML/Tailwind) for easy reading and actionability.
-    CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
-    -->
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -55,6 +45,19 @@
         .tag-market { background-color: #e5e5e5; color: #525252; } /* neutral-200, neutral-600 */
         .tag-clarify { background-color: #fed7aa; color: #9a3412; } /* orange-200, orange-800 */
         .tag-error { background-color: #f9a8d4; color: #9d174d; } /* pink-300, pink-800 */
+
+        /* Loading spinner styles */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #f59e0b;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="text-slate-800">
@@ -67,7 +70,6 @@
         </header>
 
         <main>
-            <!-- Key Metrics Section -->
             <section id="summary" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
                 <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200">
                     <h3 class="font-semibold text-slate-500 mb-2">Общая стоимость по смете</h3>
@@ -80,7 +82,6 @@
                 </div>
             </section>
 
-            <!-- Cost Distribution & Recommendations -->
             <section class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
                 <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200">
                     <h2 class="text-xl font-bold mb-4 text-center">Распределение затрат по категориям</h2>
@@ -112,12 +113,10 @@
                 </div>
             </section>
 
-            <!-- Detailed Analysis Table Section -->
             <section id="details" class="bg-white p-4 sm:p-6 rounded-2xl shadow-md border border-slate-200">
                 <h2 class="text-xl font-bold mb-4">Детальный анализ сметы</h2>
                 <p class="text-slate-600 mb-4 text-sm">Ниже представлена полная таблица из отчета. Вы можете отсортировать данные, нажав на заголовки столбцов, или отфильтровать их по статусу, чтобы быстро найти наиболее проблемные позиции. Это ваш главный инструмент для переговоров с подрядчиком.</p>
 
-                <!-- Filters -->
                 <div class="mb-4 flex flex-wrap gap-2">
                     <button class="filter-btn bg-slate-200 text-slate-800 px-4 py-2 rounded-full text-sm font-medium" data-filter="all">Все</button>
                     <button class="filter-btn bg-red-200 text-red-800 px-4 py-2 rounded-full text-sm font-medium" data-filter="Завышена">Завышена</button>
@@ -126,7 +125,6 @@
                     <button class="filter-btn bg-orange-200 text-orange-800 px-4 py-2 rounded-full text-sm font-medium" data-filter="Требует уточнения">Требует уточнения</button>
                 </div>
                 
-                <!-- Table -->
                 <div class="w-full overflow-x-auto table-container rounded-lg border border-slate-200">
                     <table class="min-w-full divide-y divide-slate-200 text-sm">
                         <thead class="bg-slate-100">
@@ -135,14 +133,47 @@
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer" onclick="sortTable(1, true)">Цена (смета)</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer" onclick="sortTable(2, true)">Цена (рынок)</th>
                                 <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer" onclick="sortTable(3, true)">Расхождение</th>
-                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer" onclick="sortTable(4)">Статус</th>
+                                <th scope="col" class="px-4 py-3 whitespace-nowrap text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer" onclick="sortTable(4)">Статус</th>
                             </tr>
                         </thead>
                         <tbody id="estimate-table-body" class="bg-white divide-y divide-slate-200">
-                            <!-- Rows will be injected by JavaScript -->
-                        </tbody>
+                            </tbody>
                     </table>
                 </div>
+            </section>
+
+            <section id="sources" class="bg-white p-4 sm:p-6 rounded-2xl shadow-md border border-slate-200 mt-10">
+                <h2 class="text-xl font-bold mb-4">Использованные источники</h2>
+                <p class="text-slate-600 mb-4 text-sm">Список веб-сайтов, которые использовались для сбора информации о средних рыночных ценах на ремонтные работы:</p>
+                <ul class="list-disc list-inside text-slate-700 space-y-2">
+                    <li><a href="https://master-demontazh.ru/czeny-na-demontazhnye-raboty" target="_blank" class="text-blue-600 hover:underline">master-demontazh.ru - Расценки на демонтажные работы</a></li>
+                    <li><a href="https://10kvt.ru/price.php" target="_blank" class="text-blue-600 hover:underline">10kvt.ru - Прайс-лист на электромонтажные работы</a></li>
+                    <li><a href="https://sknebo.ru/prices/" target="_blank" class="text-blue-600 hover:underline">sknebo.ru - Цены на ремонт квартир</a></li>
+                    <li><a href="https://remelit.ru/ceny-na-remont-kvartir/ukladka-plitki-cena.html" target="_blank" class="text-blue-600 hover:underline">remelit.ru - Цены на плиточные работы</a></li>
+                    <li><a href="https://profmaster55.ru/price/ukladka-laminata-i-parketnoj-doski-cena.html" target="_blank" class="text-blue-600 hover:underline">profmaster55.ru - Стоимость укладки ламината</a></li>
+                    <li><a href="https://santechnici.ru/tseny-na-uslugi-santehnika/" target="_blank" class="text-blue-600 hover:underline">santechnici.ru - Расценки на сантехнические работы</a></li>
+                    <li><a href="https://domashniy-masterok.ru/ustanovka-santehniki-ceny-v-moskve" target="_blank" class="text-blue-600 hover:underline">domashniy-masterok.ru - Стоимость установки сантехники</a></li>
+                    <li><a href="https://sknebo.ru/prices/shtukaturnye-raboty/" target="_blank" class="text-blue-600 hover:underline">sknebo.ru - Расценки на штукатурные работы</a></li>
+                    <li><a href="https://benpan.ru/price/" target="_blank" class="text-blue-600 hover:underline">benpan.ru - Цены на общестроительные работы</a></li>
+                    <li><a href="https://profremontnik.ru/price/rascenki-na-remont-kvartir-v-moskve/" target="_blank" class="text-blue-600 hover:underline">profremontnik.ru - Стоимость черновых работ</a></li>
+                    <li><a href="https://remont-stroy-moskva.ru/prices/" target="_blank" class="text-blue-600 hover:underline">remont-stroy-moskva.ru - Прайс-лист на ремонтные работы</a></li>
+                    <li><a href="https://remont-otdelka-kvartir.ru/tseny-na-pokleyku-oboev-v-moskve/" target="_blank" class="text-blue-600 hover:underline">remont-otdelka-kvartir.ru - Цены на поклейку обоев</a></li>
+                    <li><a href="https://stroimost.ru/prices/montazh-gipsokartona/" target="_blank" class="text-blue-600 hover:underline">stroimost.ru - Цены на монтаж гипсокартона</a></li>
+                    <li><a href="https://otoplenie.expert/montazh-radiatorov-otopleniya" target="_blank" class="text-blue-600 hover:underline">otoplenie.expert - Стоимость установки радиаторов</a></li>
+                    <li><a href="https://revizionnye-luki.ru/montazh-revizionnogo-lyuka-v-stenu-iz-gipsokartona" target="_blank" class="text-blue-600 hover:underline">revizionnye-luki.ru - Монтаж скрытых люков</a></li>
+                    <li><a href="https://plitkarf.ru/uslugi/zatirka-shvov-plitki" target="_blank" class="text-blue-600 hover:underline">plitkarf.ru - Цены на затирку швов плитки</a></li>
+                    <li><a href="https://remont-master.com/montazh-plintusa" target="_blank" class="text-blue-600 hover:underline">remont-master.com - Цены на монтаж плинтуса</a></li>
+                    <li><a href="https://dom-otdelka.ru/price/potolochnyj-karniz" target="_blank" class="text-blue-600 hover:underline">dom-otdelka.ru - Цены на монтаж потолочного карниза</a></li>
+                    <li><a href="https://moscow.profi.ru/remont/stenovye-paneli/" target="_blank" class="text-blue-600 hover:underline">moscow.profi.ru - Цены на монтаж стеновых панелей</a></li>
+                    <li><a href="https://remontkvartir.plus/services/ustanovka-zerkal/" target="_blank" class="text-blue-600 hover:underline">remontkvartir.plus - Цены на установку зеркала</a></li>
+                    <li><a href="https://elstroy-company.ru/price/" target="_blank" class="text-blue-600 hover:underline">elstroy-company.ru - Стоимость электромонтажных работ на 2025 год</a></li>
+                    <li><a href="https://elektriki-msk.ru/prajs-list/" target="_blank" class="text-blue-600 hover:underline">elektriki-msk.ru - Прайс-лист на монтаж электрики</a></li>
+                    <li><a href="http://www.topspec.ru/elektromontazh.html" target="_blank" class="text-blue-600 hover:underline">topspec.ru - Электромонтажные работы</a></li>
+                    <li><a href="https://profi.ru/remont/electromontajnye-raboty/ustanovka-rozetok-i-vyklyuchatelei/price/" target="_blank" class="text-blue-600 hover:underline">profi.ru - Стоимость установки розеток и выключателей</a></li>
+                    <li><a href="https://mrelektrik.ru/montazh-rozetok-i-vyklyuchateley/" target="_blank" class="text-blue-600 hover:underline">mrelektrik.ru - Монтаж розеток и выключателей</a></li>
+                    <li><a href="https://xn----7sbbhntyowil.xn--p1ai/ustanovka-rozetok-tsena" target="_blank" class="text-blue-600 hover:underline">xn----7sbbhntyowil.xn--p1ai - Установка розеток цена</a></li>
+                    <li><a href="https://uslugi-elektriki.ru/vizov_elektrika_na_dom/ustanovka_rozetok/" target="_blank" class="text-blue-600 hover:underline">uslugi-elektriki.ru - Установка розеток в Москве</a></li>
+                </ul>
             </section>
         </main>
     </div>
@@ -165,13 +196,13 @@
             { category: 'Общестрой', work: 'Шпатлевка', unit: 'м2', price_estimate: 800, market_price: '450', discrepancy: 350, status: 'Завышена' },
             { category: 'Общестрой', work: 'Стеклохолст', unit: 'м2', price_estimate: 250, market_price: '250', discrepancy: 0, status: 'В рынке' },
             { category: 'Общестрой', work: 'Шитрок 2 слоя с шлифовкой', unit: 'м2', price_estimate: 500, market_price: '500', discrepancy: 0, status: 'В рынке' },
-            { category: 'Электрика', work: 'Разводка: розетки', unit: 'шт', price_estimate: 3000, market_price: '220', discrepancy: 2780, status: 'Завышена' },
-            { category: 'Электрика', work: 'Разводка: выключатели', unit: 'шт', price_estimate: 3000, market_price: '220', discrepancy: 2780, status: 'Завышена' },
-            { category: 'Электрика', work: 'Разводка: светильники (накладной)', unit: '', price_estimate: 3000, market_price: '300', discrepancy: 2700, status: 'Завышена' },
-            { category: 'Электрика', work: 'Разводка: люстра', unit: 'Шт', price_estimate: 3000, market_price: '1000', discrepancy: 2000, status: 'Завышена' },
-            { category: 'Электрика', work: 'Разводка: диффузор скрытого монтажа', unit: 'Шт', price_estimate: 3000, market_price: '300', discrepancy: 2700, status: 'Завышена' },
-            { category: 'Электрика', work: 'Разводка: вывод под зеркало с подсветкой', unit: 'шт', price_estimate: 3000, market_price: '300', discrepancy: 2700, status: 'Завышена' },
-            { category: 'Электрика', work: 'Разводка: Принудительная вентиляция', unit: 'шт', price_estimate: 3000, market_price: '300', discrepancy: 2700, status: 'Завышена' },
+            { category: 'Электрика', work: 'Разводка: розетки', unit: 'шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
+            { category: 'Электрика', work: 'Разводка: выключатели', unit: 'шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
+            { category: 'Электрика', work: 'Разводка: светильники (накладной)', unit: '', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
+            { category: 'Электрика', work: 'Разводка: люстра', unit: 'Шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
+            { category: 'Электрика', work: 'Разводка: диффузор скрытого монтажа', unit: 'Шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
+            { category: 'Электрика', work: 'Разводка: вывод под зеркало с подсветкой', unit: 'шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
+            { category: 'Электрика', work: 'Разводка: Принудительная вентиляция', unit: 'шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
             { category: 'Сантехника', work: 'Разводка новой сантехнической линии', unit: 'Шт', price_estimate: 4000, market_price: '2000', discrepancy: 2000, status: 'Завышена' },
             { category: 'Сантехника', work: 'Монтаж разводки инсталяции', unit: 'шт', price_estimate: 8000, market_price: '4400', discrepancy: 3600, status: 'Завышена' },
             { category: 'Отделка', work: 'Монтаж напольного покрытия из керамогранита', unit: 'м2', price_estimate: 3000, market_price: '2500', discrepancy: 500, status: 'Завышена' },
@@ -185,26 +216,26 @@
             { category: 'Отделка', work: 'Монтаж молдингов 30*22', unit: 'Π.Μ.', price_estimate: 450, market_price: '420', discrepancy: 30, status: 'Завышена' },
             { category: 'Отделка', work: 'Монтаж средник, уголки', unit: 'шт', price_estimate: 200, market_price: '100', discrepancy: 100, status: 'Завышена' },
             { category: 'Отделка', work: 'Покраска молдингов, средник, уголки', unit: 'Π.Μ.', price_estimate: 350, market_price: '200', discrepancy: 150, status: 'Завышена' },
-            { category: 'Отделка', work: 'Монтаж декоротивного карниза КТ-64', unit: 'м2', price_estimate: 1000, market_price: '500 (пог.м.)', discrepancy: 500, status: 'Завышена' },
-            { category: 'Отделка', work: 'Окрашивание карниза', unit: 'м2', price_estimate: 800, market_price: '200 (пог.м.)', discrepancy: 600, status: 'Завышена' },
+            { category: 'Отделка', work: 'Монтаж декоротивного карниза КТ-64', unit: 'м2', price_estimate: 1000, market_price: '500', discrepancy: 500, status: 'Завышена' },
+            { category: 'Отделка', work: 'Окрашивание карниза', unit: 'м2', price_estimate: 800, market_price: '200', discrepancy: 600, status: 'Завышена' },
             { category: 'Сантехника', work: 'Монтаж скрытого сантехнического люка', unit: 'шт', price_estimate: 8000, market_price: '3500', discrepancy: 4500, status: 'Завышена' },
             { category: 'Сантехника', work: 'Монтаж инсталяции', unit: '', price_estimate: 3500, market_price: '4400', discrepancy: -900, status: 'Занижена' },
             { category: 'Сантехника', work: 'Монтаж ванной', unit: 'шт', price_estimate: 10000, market_price: '5000', discrepancy: 5000, status: 'Завышена' },
             { category: 'Сантехника', work: 'Монтаж раковины с тумбой подвисной', unit: '', price_estimate: 8000, market_price: '2500', discrepancy: 5500, status: 'Завышена' },
             { category: 'Сантехника', work: 'Монтаж полотенцесушителя', unit: '', price_estimate: 3500, market_price: '4500', discrepancy: -1000, status: 'Занижена' },
-            { category: 'Электрика', work: 'Гардеробные: Монтаж точечных светильников', unit: 'ШТ', price_estimate: 3000, market_price: '400', discrepancy: 2600, status: 'Завышена' },
-            { category: 'Электрика', work: 'Гардеробные: вывод для подсветки полок', unit: 'шт', price_estimate: 3000, market_price: '300', discrepancy: 2700, status: 'Завышена' },
-            { category: 'Электрика', work: 'Гардеробные: Монтаж диффузора', unit: 'Шт', price_estimate: 3000, market_price: '300', discrepancy: 2700, status: 'Завышена' },
-            { category: 'Электрика', work: 'Гардеробные: выключатели', unit: 'шт', price_estimate: 3000, market_price: '220', discrepancy: 2780, status: 'Завышена' },
-            { category: 'Электрика', work: 'Гардеробные: розетки', unit: 'шт', price_estimate: 3000, market_price: '220', discrepancy: 2780, status: 'Завышена' },
+            { category: 'Электрика', work: 'Гардеробные: Монтаж точечных светильников', unit: 'ШТ', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
+            { category: 'Электрика', work: 'Гардеробные: вывод для подсветки полок', unit: 'шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
+            { category: 'Электрика', work: 'Гардеробные: Монтаж диффузора', unit: 'Шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
+            { category: 'Электрика', work: 'Гардеробные: выключатели', unit: 'шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
+            { category: 'Электрика', work: 'Гардеробные: розетки', unit: 'шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
             { category: 'Общестрой', work: 'Гардеробные: Штукатурка', unit: 'кв.м.', price_estimate: 850, market_price: '400', discrepancy: 450, status: 'Завышена' },
             { category: 'Общестрой', work: 'Гардеробные: Шпатлевка (комплекс)', unit: 'м2', price_estimate: 1500, market_price: '650', discrepancy: 850, status: 'Завышена' },
             { category: 'Отделка', work: 'Гардеробные: Монтаж напольного плинтуса', unit: 'Π.Μ.', price_estimate: 850, market_price: '450', discrepancy: 400, status: 'Завышена' },
             { category: 'Отделка', work: 'Гардеробные: Окрашивание стен', unit: 'м2', price_estimate: 500, market_price: '400', discrepancy: 100, status: 'Завышена' },
             { category: 'Отделка', work: 'Гардеробные: Укладка ламината', unit: 'м2', price_estimate: 800, market_price: '500', discrepancy: 300, status: 'Завышена' },
             { category: 'Сантехника', work: 'Детская: Перенос радиатора', unit: 'шт', price_estimate: 10000, market_price: '4500', discrepancy: 5500, status: 'Завышена' },
-            { category: 'Электрика', work: 'Детская: Розетки (14 шт)', unit: 'шт', price_estimate: 3000, market_price: '220', discrepancy: 2780, status: 'Завышена' },
-            { category: 'Отделка', work: 'Детская: Поклейка обоев Wall street', unit: 'м2', price_estimate: 1300, market_price: '600', discrepancy: 700, status: 'Завышена' },
+            { category: 'Электрика', work: 'Детская: Розетки (14 шт)', unit: 'шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
+            { category: 'Отделка', work: 'Detskaya: Pokleyka oboev Wall street', unit: 'm2', price_estimate: 1300, market_price: '600', discrepancy: 700, status: 'Завышена' },
             { category: 'Общестрой', work: 'Коридор: Опуск потолка из ГКЛ', unit: 'м2', price_estimate: 0, market_price: '900', discrepancy: '?', status: 'Ошибка в смете' },
         ];
 
@@ -277,7 +308,8 @@
 
             const categoryCosts = estimateData.reduce((acc, item) => {
                 const category = item.category || 'Прочее';
-                const cost = parseFloat(item.price_estimate) * (item.quantity || 1);
+                // Assuming price_estimate is the base for cost distribution
+                const cost = parseFloat(item.price_estimate); 
                 if (!isNaN(cost)) {
                     acc[category] = (acc[category] || 0) + cost;
                 }
@@ -337,7 +369,6 @@
                     }
                 }
             });
-
         });
     </script>
 </body>
