@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интерактивный Анализ Сметы на Ремонт</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- 
+    Chosen Palette: Warm Neutrals (Slate, Stone, Amber)
+    Application Structure Plan: The application is designed as a single-page dashboard for intuitive exploration. It starts with high-level summary cards (total cost, potential savings) for immediate impact. A central interactive chart visualizes cost distribution by work category, allowing users to see the biggest cost drivers at a glance. The core of the application is a detailed, filterable, and sortable table of all estimate items. This structure enables a top-down analysis: from the overall picture to category-specific costs, down to individual line items. This is more user-friendly than the linear report, as it allows users to focus on areas of greatest concern (e.g., the most overpriced items) quickly and efficiently.
+    Visualization & Content Choices:
+    - Key Metrics (Total Cost, Potential Savings): Goal is to inform instantly. Presented as large, clear stat cards (HTML/Tailwind) for high visibility.
+    - Cost by Category: Goal is to compare cost distribution. An interactive doughnut chart (Chart.js/Canvas) is used to show the proportion of total costs for each work category. This visual format is excellent for comparing parts of a whole and is more engaging than a simple list. Interaction (hover tooltips) provides exact figures.
+    - Detailed Estimate Analysis: Goal is to organize and compare every line item. A dynamic, interactive table (HTML/Tailwind + JS) is the best choice. It allows users to sort by any column (e.g., by cost, by price difference) and filter by status ('Завышена', 'Занижена', 'В рынке'). This empowers the user to perform their own analysis and easily find the most problematic items identified in the report. This is far more powerful than a static table.
+    - Recommendations: Goal is to inform and guide. Presented as a clear, concise text block (HTML/Tailwind) for easy reading and actionability.
+    CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
+    -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            height: auto;
+            min-height: 450px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .table-container {
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        thead th {
+            position: sticky;
+            top: 0;
+            background-color: #f1f5f9; /* slate-100 */
+        }
+        .tag {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .tag-overpriced { background-color: #fecaca; color: #b91c1c; } /* red-200, red-800 */
+        .tag-underpriced { background-color: #bbf7d0; color: #166534; } /* green-200, green-800 */
+        .tag-market { background-color: #e5e5e5; color: #525252; } /* neutral-200, neutral-600 */
+        .tag-clarify { background-color: #fed7aa; color: #9a3412; } /* orange-200, orange-800 */
+        .tag-error { background-color: #f9a8d4; color: #9d174d; } /* pink-300, pink-800 */
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        
+        <header class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Интерактивный Анализ Сметы на Ремонт</h1>
+            <p class="mt-2 text-lg text-slate-600">Обзор, сравнение цен и рекомендации по оптимизации</p>
+        </header>
+
+        <main>
+            <!-- Key Metrics Section -->
+            <section id="summary" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+                <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200">
+                    <h3 class="font-semibold text-slate-500 mb-2">Общая стоимость по смете</h3>
+                    <p class="text-4xl font-bold text-slate-900">1 183 981 ₽</p>
+                </div>
+                <div class="bg-amber-100 p-6 rounded-2xl shadow-md border border-amber-200">
+                    <h3 class="font-semibold text-amber-800 mb-2">Потенциальная экономия</h3>
+                    <p class="text-4xl font-bold text-amber-900">~ 408 813 ₽</p>
+                    <p class="text-sm text-amber-700 mt-1">При приведении завышенных цен к средним рыночным</p>
+                </div>
+            </section>
+
+            <!-- Cost Distribution & Recommendations -->
+            <section class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+                <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200">
+                    <h2 class="text-xl font-bold mb-4 text-center">Распределение затрат по категориям</h2>
+                     <p class="text-center text-slate-600 mb-4 text-sm">Наведите курсор на сектор диаграммы, чтобы увидеть стоимость работ в конкретной категории. Этот график помогает определить самые затратные части проекта.</p>
+                    <div class="chart-container">
+                        <canvas id="costDistributionChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200">
+                    <h2 class="text-xl font-bold mb-4">Основные Рекомендации</h2>
+                    <div class="space-y-4 text-slate-700">
+                        <div>
+                            <h3 class="font-semibold text-slate-800">⚡ Электромонтажные работы</h3>
+                            <p>Это самая критичная область для оптимизации. Цена в 3000₽ за любую "точку" (розетку, выключатель) необоснованно завышена. Требуйте детализацию и пересчет по рыночным ценам, что может сэкономить значительную сумму.</p>
+                        </div>
+                         <div>
+                            <h3 class="font-semibold text-slate-800">🛁 Сантехника и отделка</h3>
+                            <p>Стоимость монтажа сантехники (ванна, раковина, люки) и многих отделочных работ (штукатурка, укладка ламината, монтаж плинтусов) также выше средних рыночных показателей. Эти позиции стоит обсудить с подрядчиком.</p>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-slate-800">🤔 "Приманки" в смете</h3>
+                            <p>Обратите внимание на заниженные цены на некоторые работы (демонтаж плинтусов, грунтовка). Это может быть тактикой для привлечения внимания. Используйте это как аргумент для торга по завышенным позициям.</p>
+                        </div>
+                         <div>
+                            <h3 class="font-semibold text-slate-800">📋 Запросите альтернативные сметы</h3>
+                            <p>Для объективности получите предложения от 2-3 других подрядчиков. Это даст вам сильную позицию в переговорах и поможет выбрать лучшее соотношение цены и качества.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Detailed Analysis Table Section -->
+            <section id="details" class="bg-white p-4 sm:p-6 rounded-2xl shadow-md border border-slate-200">
+                <h2 class="text-xl font-bold mb-4">Детальный анализ сметы</h2>
+                <p class="text-slate-600 mb-4 text-sm">Ниже представлена полная таблица из отчета. Вы можете отсортировать данные, нажав на заголовки столбцов, или отфильтровать их по статусу, чтобы быстро найти наиболее проблемные позиции. Это ваш главный инструмент для переговоров с подрядчиком.</p>
+
+                <!-- Filters -->
+                <div class="mb-4 flex flex-wrap gap-2">
+                    <button class="filter-btn bg-slate-200 text-slate-800 px-4 py-2 rounded-full text-sm font-medium" data-filter="all">Все</button>
+                    <button class="filter-btn bg-red-200 text-red-800 px-4 py-2 rounded-full text-sm font-medium" data-filter="Завышена">Завышена</button>
+                    <button class="filter-btn bg-green-200 text-green-800 px-4 py-2 rounded-full text-sm font-medium" data-filter="Занижена">Занижена</button>
+                    <button class="filter-btn bg-neutral-200 text-neutral-600 px-4 py-2 rounded-full text-sm font-medium" data-filter="В рынке">В рынке</button>
+                    <button class="filter-btn bg-orange-200 text-orange-800 px-4 py-2 rounded-full text-sm font-medium" data-filter="Требует уточнения">Требует уточнения</button>
+                </div>
+                
+                <!-- Table -->
+                <div class="w-full overflow-x-auto table-container rounded-lg border border-slate-200">
+                    <table class="min-w-full divide-y divide-slate-200 text-sm">
+                        <thead class="bg-slate-100">
+                            <tr>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer" onclick="sortTable(0)">Вид работ</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer" onclick="sortTable(1, true)">Цена (смета)</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer" onclick="sortTable(2, true)">Цена (рынок)</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer" onclick="sortTable(3, true)">Расхождение</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer" onclick="sortTable(4)">Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody id="estimate-table-body" class="bg-white divide-y divide-slate-200">
+                            <!-- Rows will be injected by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const estimateData = [
+            { category: 'Демонтаж', work: 'Демонтаж дверных блоков', unit: 'шт', price_estimate: 500, market_price: '500', discrepancy: 0, status: 'В рынке' },
+            { category: 'Демонтаж', work: 'Демонтаж плинтусов', unit: 'пог.м.', price_estimate: 30, market_price: '50', discrepancy: -20, status: 'Занижена' },
+            { category: 'Демонтаж', work: 'Удаление обоев', unit: 'кв.м.', price_estimate: 100, market_price: '100', discrepancy: 0, status: 'В рынке' },
+            { category: 'Демонтаж', work: 'Демонтаж существующих молдингов', unit: 'пог.м.', price_estimate: 50, market_price: '200', discrepancy: -150, status: 'Занижена' },
+            { category: 'Демонтаж', work: 'Демонтаж напольной и настенной плитки в сан.у', unit: 'м2', price_estimate: 400, market_price: '200', discrepancy: 200, status: 'Завышена' },
+            { category: 'Демонтаж', work: 'Демонтаж напольного покрытия (паркет, ламинат)', unit: 'м2', price_estimate: 200, market_price: '110', discrepancy: 90, status: 'Завышена' },
+            { category: 'Демонтаж', work: 'Демонтаж сантехники и разводки сантехнической', unit: 'шт', price_estimate: 5000, market_price: '1500-5000', discrepancy: '?', status: 'Требует уточнения' },
+            { category: 'Демонтаж', work: 'Демонтаж электрики (розетки, выключатели, с)', unit: 'Шт', price_estimate: 150, market_price: '80', discrepancy: 70, status: 'Завышена' },
+            { category: 'Демонтаж', work: 'Демонтаж существующих перегородок', unit: 'м2', price_estimate: 300, market_price: '300', discrepancy: 0, status: 'В рынке' },
+            { category: 'Общестрой', work: 'Возведение новых перегородок из газосиликатных блоков', unit: 'м2', price_estimate: 800, market_price: '700', discrepancy: 100, status: 'Завышена' },
+            { category: 'Общестрой', work: 'Грунтовка бетоноконтактом', unit: 'м2', price_estimate: 80, market_price: '300', discrepancy: -220, status: 'Занижена' },
+            { category: 'Общестрой', work: 'Штукатурка', unit: 'м2', price_estimate: 850, market_price: '400', discrepancy: 450, status: 'Завышена' },
+            { category: 'Общестрой', work: 'Грунтовка', unit: 'м2', price_estimate: 80, market_price: '80', discrepancy: 0, status: 'В рынке' },
+            { category: 'Общестрой', work: 'Шпатлевка', unit: 'м2', price_estimate: 800, market_price: '450', discrepancy: 350, status: 'Завышена' },
+            { category: 'Общестрой', work: 'Стеклохолст', unit: 'м2', price_estimate: 250, market_price: '250', discrepancy: 0, status: 'В рынке' },
+            { category: 'Общестрой', work: 'Шитрок 2 слоя с шлифовкой', unit: 'м2', price_estimate: 500, market_price: '500', discrepancy: 0, status: 'В рынке' },
+            { category: 'Электрика', work: 'Разводка: розетки', unit: 'шт', price_estimate: 3000, market_price: '220', discrepancy: 2780, status: 'Завышена' },
+            { category: 'Электрика', work: 'Разводка: выключатели', unit: 'шт', price_estimate: 3000, market_price: '220', discrepancy: 2780, status: 'Завышена' },
+            { category: 'Электрика', work: 'Разводка: светильники (накладной)', unit: '', price_estimate: 3000, market_price: '300', discrepancy: 2700, status: 'Завышена' },
+            { category: 'Электрика', work: 'Разводка: люстра', unit: 'Шт', price_estimate: 3000, market_price: '1000', discrepancy: 2000, status: 'Завышена' },
+            { category: 'Электрика', work: 'Разводка: диффузор скрытого монтажа', unit: 'Шт', price_estimate: 3000, market_price: '300', discrepancy: 2700, status: 'Завышена' },
+            { category: 'Электрика', work: 'Разводка: вывод под зеркало с подсветкой', unit: 'шт', price_estimate: 3000, market_price: '300', discrepancy: 2700, status: 'Завышена' },
+            { category: 'Электрика', work: 'Разводка: Принудительная вентиляция', unit: 'шт', price_estimate: 3000, market_price: '300', discrepancy: 2700, status: 'Завышена' },
+            { category: 'Сантехника', work: 'Разводка новой сантехнической линии', unit: 'Шт', price_estimate: 4000, market_price: '2000', discrepancy: 2000, status: 'Завышена' },
+            { category: 'Сантехника', work: 'Монтаж разводки инсталяции', unit: 'шт', price_estimate: 8000, market_price: '4400', discrepancy: 3600, status: 'Завышена' },
+            { category: 'Отделка', work: 'Монтаж напольного покрытия из керамогранита', unit: 'м2', price_estimate: 3000, market_price: '2500', discrepancy: 500, status: 'Завышена' },
+            { category: 'Общестрой', work: 'Монтаж опуска из ГКЛ на 186 мм', unit: 'м2', price_estimate: 8571, market_price: '900', discrepancy: 7671, status: 'Завышена' },
+            { category: 'Общестрой', work: 'Штукатурка, шпатлевка, шлифовка (комплекс)', unit: 'м2', price_estimate: 4286, market_price: '2350', discrepancy: 1936, status: 'Завышена' },
+            { category: 'Отделка', work: 'Покраска опуска краской Flugger', unit: 'м2', price_estimate: 2857, market_price: '400', discrepancy: 2457, status: 'Завышена' },
+            { category: 'Отделка', work: 'Окрашивание стен', unit: 'м2', price_estimate: 500, market_price: '400', discrepancy: 100, status: 'Завышена' },
+            { category: 'Отделка', work: 'Затирка плиточных швов', unit: 'м2', price_estimate: 400, market_price: '400', discrepancy: 0, status: 'В рынке' },
+            { category: 'Отделка', work: 'Монтаж молдингов 35*15', unit: 'Π.Μ.', price_estimate: 450, market_price: '420', discrepancy: 30, status: 'Завышена' },
+            { category: 'Отделка', work: 'Монтаж молдингов 9*6', unit: 'Π.Μ.', price_estimate: 500, market_price: '420', discrepancy: 80, status: 'Завышена' },
+            { category: 'Отделка', work: 'Монтаж молдингов 30*22', unit: 'Π.Μ.', price_estimate: 450, market_price: '420', discrepancy: 30, status: 'Завышена' },
+            { category: 'Отделка', work: 'Монтаж средник, уголки', unit: 'шт', price_estimate: 200, market_price: '100', discrepancy: 100, status: 'Завышена' },
+            { category: 'Отделка', work: 'Покраска молдингов, средник, уголки', unit: 'Π.Μ.', price_estimate: 350, market_price: '200', discrepancy: 150, status: 'Завышена' },
+            { category: 'Отделка', work: 'Монтаж декоротивного карниза КТ-64', unit: 'м2', price_estimate: 1000, market_price: '500 (пог.м.)', discrepancy: 500, status: 'Завышена' },
+            { category: 'Отделка', work: 'Окрашивание карниза', unit: 'м2', price_estimate: 800, market_price: '200 (пог.м.)', discrepancy: 600, status: 'Завышена' },
+            { category: 'Сантехника', work: 'Монтаж скрытого сантехнического люка', unit: 'шт', price_estimate: 8000, market_price: '3500', discrepancy: 4500, status: 'Завышена' },
+            { category: 'Сантехника', work: 'Монтаж инсталяции', unit: '', price_estimate: 3500, market_price: '4400', discrepancy: -900, status: 'Занижена' },
+            { category: 'Сантехника', work: 'Монтаж ванной', unit: 'шт', price_estimate: 10000, market_price: '5000', discrepancy: 5000, status: 'Завышена' },
+            { category: 'Сантехника', work: 'Монтаж раковины с тумбой подвисной', unit: '', price_estimate: 8000, market_price: '2500', discrepancy: 5500, status: 'Завышена' },
+            { category: 'Сантехника', work: 'Монтаж полотенцесушителя', unit: '', price_estimate: 3500, market_price: '4500', discrepancy: -1000, status: 'Занижена' },
+            { category: 'Электрика', work: 'Гардеробные: Монтаж точечных светильников', unit: 'ШТ', price_estimate: 3000, market_price: '400', discrepancy: 2600, status: 'Завышена' },
+            { category: 'Электрика', work: 'Гардеробные: вывод для подсветки полок', unit: 'шт', price_estimate: 3000, market_price: '300', discrepancy: 2700, status: 'Завышена' },
+            { category: 'Электрика', work: 'Гардеробные: Монтаж диффузора', unit: 'Шт', price_estimate: 3000, market_price: '300', discrepancy: 2700, status: 'Завышена' },
+            { category: 'Электрика', work: 'Гардеробные: выключатели', unit: 'шт', price_estimate: 3000, market_price: '220', discrepancy: 2780, status: 'Завышена' },
+            { category: 'Электрика', work: 'Гардеробные: розетки', unit: 'шт', price_estimate: 3000, market_price: '220', discrepancy: 2780, status: 'Завышена' },
+            { category: 'Общестрой', work: 'Гардеробные: Штукатурка', unit: 'кв.м.', price_estimate: 850, market_price: '400', discrepancy: 450, status: 'Завышена' },
+            { category: 'Общестрой', work: 'Гардеробные: Шпатлевка (комплекс)', unit: 'м2', price_estimate: 1500, market_price: '650', discrepancy: 850, status: 'Завышена' },
+            { category: 'Отделка', work: 'Гардеробные: Монтаж напольного плинтуса', unit: 'Π.Μ.', price_estimate: 850, market_price: '450', discrepancy: 400, status: 'Завышена' },
+            { category: 'Отделка', work: 'Гардеробные: Окрашивание стен', unit: 'м2', price_estimate: 500, market_price: '400', discrepancy: 100, status: 'Завышена' },
+            { category: 'Отделка', work: 'Гардеробные: Укладка ламината', unit: 'м2', price_estimate: 800, market_price: '500', discrepancy: 300, status: 'Завышена' },
+            { category: 'Сантехника', work: 'Детская: Перенос радиатора', unit: 'шт', price_estimate: 10000, market_price: '4500', discrepancy: 5500, status: 'Завышена' },
+            { category: 'Электрика', work: 'Детская: Розетки (14 шт)', unit: 'шт', price_estimate: 3000, market_price: '220', discrepancy: 2780, status: 'Завышена' },
+            { category: 'Отделка', work: 'Детская: Поклейка обоев Wall street', unit: 'м2', price_estimate: 1300, market_price: '600', discrepancy: 700, status: 'Завышена' },
+            { category: 'Общестрой', work: 'Коридор: Опуск потолка из ГКЛ', unit: 'м2', price_estimate: 0, market_price: '900', discrepancy: '?', status: 'Ошибка в смете' },
+        ];
+
+        let currentSort = { column: 0, direction: 'asc' };
+
+        function renderTable(data) {
+            const tableBody = document.getElementById('estimate-table-body');
+            tableBody.innerHTML = '';
+            data.forEach(item => {
+                let statusClass = '';
+                switch (item.status) {
+                    case 'Завышена': statusClass = 'tag-overpriced'; break;
+                    case 'Занижена': statusClass = 'tag-underpriced'; break;
+                    case 'В рынке': statusClass = 'tag-market'; break;
+                    case 'Требует уточнения': statusClass = 'tag-clarify'; break;
+                    case 'Ошибка в смете': statusClass = 'tag-error'; break;
+                }
+                
+                const row = `
+                    <tr class="data-row" data-status="${item.status}">
+                        <td class="px-4 py-3 whitespace-normal text-slate-800 font-medium">${item.work}</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-slate-600">${item.price_estimate} ₽</td>
+                        <td class="px-4 py-3 whitespace-nowrap text-slate-600">${item.market_price} ₽</td>
+                        <td class="px-4 py-3 whitespace-nowrap font-medium ${item.discrepancy > 0 ? 'text-red-600' : item.discrepancy < 0 ? 'text-green-600' : 'text-slate-500'}">
+                            ${item.discrepancy > 0 ? '+' : ''}${item.discrepancy} ₽
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap"><span class="tag ${statusClass}">${item.status}</span></td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            });
+        }
+
+        function sortTable(columnIndex, isNumeric = false) {
+            const direction = currentSort.column === columnIndex && currentSort.direction === 'asc' ? 'desc' : 'asc';
+            
+            const sortedData = [...estimateData].sort((a, b) => {
+                const keys = Object.keys(a);
+                const keyA = isNumeric ? parseFloat(a[Object.keys(a)[columnIndex + 1]].toString().replace('?', 0)) : a[Object.keys(a)[columnIndex + 1]];
+                const keyB = isNumeric ? parseFloat(b[Object.keys(b)[columnIndex + 1]].toString().replace('?', 0)) : b[Object.keys(b)[columnIndex + 1]];
+
+                if (keyA < keyB) return direction === 'asc' ? -1 : 1;
+                if (keyA > keyB) return direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            currentSort = { column: columnIndex, direction: direction };
+            renderTable(sortedData);
+        }
+
+        function filterTable(filter) {
+            const rows = document.querySelectorAll('.data-row');
+            rows.forEach(row => {
+                if (filter === 'all' || row.dataset.status === filter) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            renderTable(estimateData);
+            
+            document.querySelectorAll('.filter-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    filterTable(e.target.dataset.filter);
+                });
+            });
+
+            const categoryCosts = estimateData.reduce((acc, item) => {
+                const category = item.category || 'Прочее';
+                const cost = parseFloat(item.price_estimate) * (item.quantity || 1);
+                if (!isNaN(cost)) {
+                    acc[category] = (acc[category] || 0) + cost;
+                }
+                return acc;
+            }, {});
+            
+            const ctx = document.getElementById('costDistributionChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(categoryCosts),
+                    datasets: [{
+                        label: 'Стоимость работ',
+                        data: Object.values(categoryCosts),
+                        backgroundColor: [
+                            '#334155', // slate-700
+                            '#475569', // slate-600
+                            '#64748b', // slate-500
+                            '#94a3b8', // slate-400
+                            '#f59e0b', // amber-500
+                            '#fbbf24', // amber-400
+                            '#fcd34d'  // amber-300
+                        ],
+                        borderColor: '#f8fafc', // slate-50
+                        borderWidth: 4,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                font: {
+                                    size: 12,
+                                    family: 'Inter'
+                                },
+                                color: '#475569'
+                            }
+                        },
+                        tooltip: {
+                             callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(context.parsed);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+        });
+    </script>
+</body>
+</html>
