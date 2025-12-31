@@ -1,373 +1,229 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Интерактивный Анализ Сметы на Ремонт</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* slate-50 */
-        }
-        .chart-container {
-            position: relative;
-            width: 100%;
-            max-width: 450px;
-            height: auto;
-            min-height: 450px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        .table-container {
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-        thead th {
-            position: sticky;
-            top: 0;
-            background-color: #f1f5f9; /* slate-100 */
-        }
-        .tag {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.8rem;
-            font-weight: 500;
-            white-space: nowrap;
-        }
-        .tag-overpriced { background-color: #fecaca; color: #b91c1c; } /* red-200, red-800 */
-        .tag-underpriced { background-color: #bbf7d0; color: #166534; } /* green-200, green-800 */
-        .tag-market { background-color: #e5e5e5; color: #525252; } /* neutral-200, neutral-600 */
-        .tag-clarify { background-color: #fed7aa; color: #9a3412; } /* orange-200, orange-800 */
-        .tag-error { background-color: #f9a8d4; color: #9d174d; } /* pink-300, pink-800 */
+import React, { useState, useEffect } from 'react';
+import { Trophy, ChevronRight, RotateCcw, CheckCircle2, XCircle, Brain, Globe, MessageSquare, Zap } from 'lucide-react';
 
-        /* Loading spinner styles */
-        .spinner {
-            border: 4px solid rgba(0, 0, 0, 0.1);
-            border-left-color: #f59e0b;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    </style>
-</head>
-<body class="text-slate-800">
+const QUIZ_DATA = [
+  { q: "Что произошло в США 20 января 2025 года?", a: ["Выборы", "Инаугурация Трампа", "Запуск X2", "Марсианский указ"], c: 1, difficulty: "Легко", cat: "Политика" },
+  { q: "Какой зверь стал мемом в песне 'сидим за столом'?", a: ["Капибара", "Бобер", "Кот Окак", "Хомяк"], c: 1, difficulty: "Легко", cat: "Мемы" },
+  { q: "Кто стал канцлером Германии в мае 2025?", a: ["Шольц", "Фридрих Мерц", "Меркель", "Хабек"], c: 1, difficulty: "Легко", cat: "Политика" },
+  { q: "Где встретились Трамп, Зеленский и Макрон?", a: ["Сакре-Кёр", "Нотр-Дам", "Сент-Шапель", "Пантеон"], c: 1, difficulty: "Легко", cat: "Политика" },
+  { q: "Какой текст на меме с котом в капюшоне?", a: ["Пон", "Окак", "Чиназес", "Тю"], c: 1, difficulty: "Легко", cat: "Мемы" },
+  { q: "Как зовут первого Папу Римского из США (2025)?", a: ["Роберт Прево", "Тимоти Долан", "Шон О’Мэлли", "Фрэнсис Джордж"], c: 0, difficulty: "Средне", cat: "Мир" },
+  { q: "Новая российская баллистическая система 2025 года?", a: ["Кедр", "Орешник", "Ясень", "Кипарис"], c: 1, difficulty: "Средне", cat: "Россия" },
+  { q: "Чья песня 'Плывет веночек' завирусилась?", a: ["Пугачева", "Кадышева", "Долина", "Бабкина"], c: 1, difficulty: "Средне", cat: "Мемы" },
+  { q: "Из какого музея украли королевские регалии?", a: ["Прадо", "Лувр", "Эрмитаж", "Уффици"], c: 1, difficulty: "Средне", cat: "Мир" },
+  { q: "Кто стал 37-й страной, легализовавшей однополые браки?", a: ["Польша", "Лихтенштейн", "Армения", "Болгария"], c: 1, difficulty: "Средне", cat: "Мир" },
+  { q: "Кто выиграл выборы президента Польши в 2025?", a: ["Тшасковский", "Кароль Навроцкий", "Дуда", "Туск"], c: 1, difficulty: "Средне", cat: "Политика" },
+  { q: "Название межзвездной кометы 2025 года?", a: ["Oumuamua", "3I/ATLAS", "Borisov", "Swift-Tuttle"], c: 1, difficulty: "Средне", cat: "Наука" },
+  { q: "Какое агентство США закрыли Трамп и Маск?", a: ["ФБР", "USAID", "НАСА", "МинОбр"], c: 1, difficulty: "Средне", cat: "Политика" },
+  { q: "Что польский космонавт отправил в космос?", a: ["Борщ", "Пироги (pierogi)", "Деруны", "Бигос"], c: 1, difficulty: "Средне", cat: "Мир" },
+  { q: "Что впервые синтезировали на станции Тяньгун?", a: ["Золото", "Кислород", "Воду", "Топливо"], c: 1, difficulty: "Средне", cat: "Наука" },
+  { q: "Где прошел саммит Путина и Трампа в августе?", a: ["Флорида", "Аляска", "Техас", "Гавайи"], c: 1, difficulty: "Сложно", cat: "Политика" },
+  { q: "Смертоносный циклон 2025 года в Таиланде?", a: ["Сеньяр", "Катрина", "Яги", "Милтон"], c: 0, difficulty: "Сложно", cat: "Мир" },
+  { q: "Что случилось с аэропортом Домодедово?", a: ["Переименован", "Выставлен на аукцион", "Закрыт", "Объединен"], c: 1, difficulty: "Сложно", cat: "Россия" },
+  { q: "Мем-состояние 'уставшего льва'?", a: ["Львиная депрессия", "Гиблификация", "Думскроллинг", "Окакивание"], c: 1, difficulty: "Сложно", cat: "Мемы" },
+  { q: "Кто достроил забор на границе с РФ в 2025?", a: ["Эстония", "Латвия", "Литва", "Финляндия"], c: 1, difficulty: "Сложно", cat: "Россия" },
+  { q: "Убыток Citigroup при выходе из РФ?", a: ["$500 млн", "$1.2 млрд", "$5 млрд", "$100 млн"], c: 1, difficulty: "Сложно", cat: "Экономика" },
+  { q: "Где протесты Gen Z свергли лидера в 2025?", a: ["Кения", "Непал", "Нигерия", "Судан"], c: 1, difficulty: "Сложно", cat: "Политика" },
+  { q: "Сколько кубитов в новом квантовом компьютере?", a: ["12", "50", "1000", "5"], c: 1, difficulty: "Эксперт", cat: "Наука" },
+  { q: "Причина взрыва в Нигерии (98 погибших)?", a: ["Удобрения", "Бензовоз", "Мука", "Газ"], c: 1, difficulty: "Эксперт", cat: "Мир" },
+  { q: "Название операции Украины по атаке на аэродромы?", a: ["Купол", "Паутина", "Трезубец", "Буря"], c: 1, difficulty: "Эксперт", cat: "Политика" },
+  { q: "Какая кинолегенда умерла в 2025 году?", a: ["Денёв", "Брижит Бардо", "Юппер", "Бино"], c: 1, difficulty: "Эксперт", cat: "Культура" }
+];
 
-    <div class="container mx-auto p-4 md:p-8">
+export default function App() {
+  const [gameState, setGameState] = useState('start'); // start, quiz, results
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [score, setScore] = useState(0);
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [showFeedback, setShowFeedback] = useState(false);
+
+  const handleStart = () => {
+    setGameState('quiz');
+    setCurrentIdx(0);
+    setScore(0);
+    setSelectedOption(null);
+    setShowFeedback(false);
+  };
+
+  const handleOptionClick = (idx) => {
+    if (showFeedback) return;
+    setSelectedOption(idx);
+    setShowFeedback(true);
+    if (idx === QUIZ_DATA[currentIdx].c) {
+      setScore(score + 1);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentIdx < QUIZ_DATA.length - 1) {
+      setCurrentIdx(currentIdx + 1);
+      setSelectedOption(null);
+      setShowFeedback(false);
+    } else {
+      setGameState('results');
+    }
+  };
+
+  const getDifficultyColor = (diff) => {
+    switch (diff) {
+      case 'Легко': return 'bg-green-100 text-green-700';
+      case 'Средне': return 'bg-yellow-100 text-yellow-700';
+      case 'Сложно': return 'bg-orange-100 text-orange-700';
+      case 'Эксперт': return 'bg-red-100 text-red-700';
+      default: return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 p-4 flex flex-col items-center justify-center">
+      <div className="max-w-2xl w-full bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100">
         
-        <header class="text-center mb-10">
-            <h1 class="text-3xl md:text-4xl font-bold text-slate-900">Интерактивный Анализ Сметы на Ремонт</h1>
-            <p class="mt-2 text-lg text-slate-600">Обзор, сравнение цен и рекомендации по оптимизации</p>
-        </header>
+        {gameState === 'start' && (
+          <div className="p-8 text-center space-y-6">
+            <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-indigo-200">
+              <Brain className="text-white w-10 h-10" />
+            </div>
+            <h1 className="text-4xl font-black text-slate-800">2025: Год, который мы прожили</h1>
+            <p className="text-slate-500 text-lg">
+              Проверь свои знания о главных событиях уходящего года. 26 вопросов: от инаугурации Трампа до мемов с бобрами.
+            </p>
+            <div className="grid grid-cols-2 gap-4 text-sm font-medium">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-3">
+                <Globe className="text-indigo-500 w-5 h-5" />
+                <span>Мировая политика</span>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-3">
+                <Zap className="text-amber-500 w-5 h-5" />
+                <span>Технологии</span>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-3">
+                <MessageSquare className="text-emerald-500 w-5 h-5" />
+                <span>Тренды и Мемы</span>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-3">
+                <Trophy className="text-rose-500 w-5 h-5" />
+                <span>26 вопросов</span>
+              </div>
+            </div>
+            <button 
+              onClick={handleStart}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg shadow-indigo-200 active:scale-95"
+            >
+              Начать квиз
+            </button>
+          </div>
+        )}
 
-        <main>
-            <section id="summary" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200">
-                    <h3 class="font-semibold text-slate-500 mb-2">Общая стоимость по смете</h3>
-                    <p class="text-4xl font-bold text-slate-900">1 183 981 ₽</p>
-                </div>
-                <div class="bg-amber-100 p-6 rounded-2xl shadow-md border border-amber-200">
-                    <h3 class="font-semibold text-amber-800 mb-2">Потенциальная экономия</h3>
-                    <p class="text-4xl font-bold text-amber-900">~ 408 813 ₽</p>
-                    <p class="text-sm text-amber-700 mt-1">При приведении завышенных цен к средним рыночным</p>
-                </div>
-            </section>
+        {gameState === 'quiz' && (
+          <div className="p-6 md:p-8 space-y-6">
+            <div className="flex justify-between items-center">
+              <div className="space-y-1">
+                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${getDifficultyColor(QUIZ_DATA[currentIdx].difficulty)}`}>
+                  {QUIZ_DATA[currentIdx].difficulty}
+                </span>
+                <p className="text-xs text-slate-400 font-medium ml-1">{QUIZ_DATA[currentIdx].cat}</p>
+              </div>
+              <div className="text-sm font-bold text-slate-400">
+                Вопрос {currentIdx + 1} / {QUIZ_DATA.length}
+              </div>
+            </div>
 
-            <section class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-                <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200">
-                    <h2 class="text-xl font-bold mb-4 text-center">Распределение затрат по категориям</h2>
-                     <p class="text-center text-slate-600 mb-4 text-sm">Наведите курсор на сектор диаграммы, чтобы увидеть стоимость работ в конкретной категории. Этот график помогает определить самые затратные части проекта.</p>
-                    <div class="chart-container">
-                        <canvas id="costDistributionChart"></canvas>
-                    </div>
-                </div>
-                <div class="bg-white p-6 rounded-2xl shadow-md border border-slate-200">
-                    <h2 class="text-xl font-bold mb-4">Основные Рекомендации</h2>
-                    <div class="space-y-4 text-slate-700">
-                        <div>
-                            <h3 class="font-semibold text-slate-800">⚡ Электромонтажные работы</h3>
-                            <p>Это самая критичная область для оптимизации. Цена в 3000₽ за любую "точку" (розетку, выключатель) необоснованно завышена. Требуйте детализацию и пересчет по рыночным ценам, что может сэкономить значительную сумму.</p>
-                        </div>
-                         <div>
-                            <h3 class="font-semibold text-slate-800">🛁 Сантехника и отделка</h3>
-                            <p>Стоимость монтажа сантехники (ванна, раковина, люки) и многих отделочных работ (штукатурка, укладка ламината, монтаж плинтусов) также выше средних рыночных показателей. Эти позиции стоит обсудить с подрядчиком.</p>
-                        </div>
-                        <div>
-                            <h3 class="font-semibold text-slate-800">🤔 "Приманки" в смете</h3>
-                            <p>Обратите внимание на заниженные цены на некоторые работы (демонтаж плинтусов, грунтовка). Это может быть тактикой для привлечения внимания. Используйте это как аргумент для торга по завышенным позициям.</p>
-                        </div>
-                         <div>
-                            <h3 class="font-semibold text-slate-800">📋 Запросите альтернативные сметы</h3>
-                            <p>Для объективности получите предложения от 2-3 других подрядчиков. Это даст вам сильную позицию в переговорах и поможет выбрать лучшее соотношение цены и качества.</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
+            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-indigo-600 transition-all duration-300" 
+                style={{ width: `${((currentIdx + 1) / QUIZ_DATA.length) * 100}%` }}
+              ></div>
+            </div>
 
-            <section id="details" class="bg-white p-4 sm:p-6 rounded-2xl shadow-md border border-slate-200">
-                <h2 class="text-xl font-bold mb-4">Детальный анализ сметы</h2>
-                <p class="text-slate-600 mb-4 text-sm">Ниже представлена полная таблица из отчета. Вы можете отсортировать данные, нажав на заголовки столбцов, или отфильтровать их по статусу, чтобы быстро найти наиболее проблемные позиции. Это ваш главный инструмент для переговоров с подрядчиком.</p>
+            <h2 className="text-2xl font-bold text-slate-800 leading-tight">
+              {QUIZ_DATA[currentIdx].q}
+            </h2>
 
-                <div class="mb-4 flex flex-wrap gap-2">
-                    <button class="filter-btn bg-slate-200 text-slate-800 px-4 py-2 rounded-full text-sm font-medium" data-filter="all">Все</button>
-                    <button class="filter-btn bg-red-200 text-red-800 px-4 py-2 rounded-full text-sm font-medium" data-filter="Завышена">Завышена</button>
-                    <button class="filter-btn bg-green-200 text-green-800 px-4 py-2 rounded-full text-sm font-medium" data-filter="Занижена">Занижена</button>
-                    <button class="filter-btn bg-neutral-200 text-neutral-600 px-4 py-2 rounded-full text-sm font-medium" data-filter="В рынке">В рынке</button>
-                    <button class="filter-btn bg-orange-200 text-orange-800 px-4 py-2 rounded-full text-sm font-medium" data-filter="Требует уточнения">Требует уточнения</button>
-                </div>
-                
-                <div class="w-full overflow-x-auto table-container rounded-lg border border-slate-200">
-                    <table class="min-w-full divide-y divide-slate-200 text-sm">
-                        <thead class="bg-slate-100">
-                            <tr>
-                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer" onclick="sortTable(0)">Вид работ</th>
-                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer" onclick="sortTable(1, true)">Цена (смета)</th>
-                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer" onclick="sortTable(2, true)">Цена (рынок)</th>
-                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer" onclick="sortTable(3, true)">Расхождение</th>
-                                <th scope="col" class="px-4 py-3 whitespace-nowrap text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer" onclick="sortTable(4)">Статус</th>
-                            </tr>
-                        </thead>
-                        <tbody id="estimate-table-body" class="bg-white divide-y divide-slate-200">
-                            </tbody>
-                    </table>
-                </div>
-            </section>
+            <div className="space-y-3">
+              {QUIZ_DATA[currentIdx].a.map((opt, i) => {
+                let statusClass = "bg-slate-50 border-slate-200 hover:border-indigo-300";
+                let icon = null;
 
-            <section id="sources" class="bg-white p-4 sm:p-6 rounded-2xl shadow-md border border-slate-200 mt-10">
-                <h2 class="text-xl font-bold mb-4">Использованные источники</h2>
-                <p class="text-slate-600 mb-4 text-sm">Список веб-сайтов, которые использовались для сбора информации о средних рыночных ценах на ремонтные работы:</p>
-                <ul class="list-disc list-inside text-slate-700 space-y-2">
-                    <li><a href="https://master-demontazh.ru/demontazh_rascenki/kal-kuljator.html" target="_blank" class="text-blue-600 hover:underline">master-demontazh.ru - Расценки на демонтажные работы</a></li>
-                    <li><a href="https://10kvt.ru/price.php" target="_blank" class="text-blue-600 hover:underline">10kvt.ru - Прайс-лист на электромонтажные работы</a></li>
-                    <li><a href="https://sknebo.ru/services/" target="_blank" class="text-blue-600 hover:underline">sknebo.ru - Цены на ремонт квартир</a></li>
-                    <li><a href="https://remelit.ru/remont-kvartir-tsena/" target="_blank" class="text-blue-600 hover:underline">remelit.ru - Цены на плиточные работы</a></li>
-                    <li><a href="https://santechnici.ru/price-na-santechnicheskie-raboty/" target="_blank" class="text-blue-600 hover:underline">santechnici.ru - Расценки на сантехнические работы</a></li>
-                    <li><a href="https://domashniy-masterok.ru/price/prays-na-elektromontazhnye-raboty/" target="_blank" class="text-blue-600 hover:underline">domashniy-masterok.ru - Стоимость установки сантехники</a></li>
-                    <li><a href="https://sknebo.ru/stoimost-remonta-kvartiry-za-kvadratnyy-metr/" target="_blank" class="text-blue-600 hover:underline">sknebo.ru - Расценки на штукатурные работы</a></li>
-                    <li><a href="https://profremontnik.ru/price/rascenki-na-remont-kvartir-v-moskve/" target="_blank" class="text-blue-600 hover:underline">profremontnik.ru - Стоимость черновых работ</a></li>
-                    <li><a href="https://remont-stroy-moskva.ru/prices/" target="_blank" class="text-blue-600 hover:underline">remont-stroy-moskva.ru - Прайс-лист на ремонтные работы</a></li>
-                    <li><a href="https://remont-otdelka-kvartir.ru/tseny-na-pokleyku-oboev-v-moskve/" target="_blank" class="text-blue-600 hover:underline">remont-otdelka-kvartir.ru - Цены на поклейку обоев</a></li>
-                    <li><a href="https://stroimost.ru/prices/montazh-gipsokartona/" target="_blank" class="text-blue-600 hover:underline">stroimost.ru - Цены на монтаж гипсокартона</a></li>
-                    <li><a href="https://otoplenie.expert/montazh-radiatorov-otopleniya" target="_blank" class="text-blue-600 hover:underline">otoplenie.expert - Стоимость установки радиаторов</a></li>
-                    <li><a href="https://revizionnye-luki.ru/montazh-revizionnogo-lyuka-v-stenu-iz-gipsokartona" target="_blank" class="text-blue-600 hover:underline">revizionnye-luki.ru - Монтаж скрытых люков</a></li>
-                    <li><a href="https://plitkarf.ru/uslugi/zatirka-shvov-plitki" target="_blank" class="text-blue-600 hover:underline">plitkarf.ru - Цены на затирку швов плитки</a></li>
-                    <li><a href="https://remont-master.com/montazh-plintusa" target="_blank" class="text-blue-600 hover:underline">remont-master.com - Цены на монтаж плинтуса</a></li>
-                    <li><a href="https://dom-otdelka.ru/price/potolochnyj-karniz" target="_blank" class="text-blue-600 hover:underline">dom-otdelka.ru - Цены на монтаж потолочного карниза</a></li>
-                    <li><a href="https://moscow.profi.ru/remont/stenovye-paneli/" target="_blank" class="text-blue-600 hover:underline">moscow.profi.ru - Цены на монтаж стеновых панелей</a></li>
-                    <li><a href="https://remontkvartir.plus/services/ustanovka-zerkal/" target="_blank" class="text-blue-600 hover:underline">remontkvartir.plus - Цены на установку зеркала</a></li>
-                    <li><a href="https://elstroy-company.ru/price/" target="_blank" class="text-blue-600 hover:underline">elstroy-company.ru - Стоимость электромонтажных работ на 2025 год</a></li>
-                    <li><a href="https://elektriki-msk.ru/prajs-list/" target="_blank" class="text-blue-600 hover:underline">elektriki-msk.ru - Прайс-лист на монтаж электрики</a></li>
-                    <li><a href="http://www.topspec.ru/elektromontazh.html" target="_blank" class="text-blue-600 hover:underline">topspec.ru - Электромонтажные работы</a></li>
-                    <li><a href="https://profi.ru/remont/electromontajnye-raboty/ustanovka-rozetok-i-vyklyuchatelei/price/" target="_blank" class="text-blue-600 hover:underline">profi.ru - Стоимость установки розеток и выключателей</a></li>
-                    <li><a href="https://mrelektrik.ru/montazh-rozetok-i-vyklyuchateley/" target="_blank" class="text-blue-600 hover:underline">mrelektrik.ru - Монтаж розеток и выключателей</a></li>
-                    <li><a href="https://xn----7sbbhntyowil.xn--p1ai/ustanovka-rozetok-tsena" target="_blank" class="text-blue-600 hover:underline">xn----7sbbhntyowil.xn--p1ai - Установка розеток цена</a></li>
-                    <li><a href="https://uslugi-elektriki.ru/vizov_elektrika_na_dom/ustanovka_rozetok/" target="_blank" class="text-blue-600 hover:underline">uslugi-elektriki.ru - Установка розеток в Москве</a></li>
-                </ul>
-            </section>
-        </main>
+                if (showFeedback) {
+                  if (i === QUIZ_DATA[currentIdx].c) {
+                    statusClass = "bg-green-50 border-green-500 text-green-700 ring-1 ring-green-500";
+                    icon = <CheckCircle2 className="w-5 h-5 text-green-500" />;
+                  } else if (i === selectedOption) {
+                    statusClass = "bg-red-50 border-red-500 text-red-700 ring-1 ring-red-500";
+                    icon = <XCircle className="w-5 h-5 text-red-500" />;
+                  } else {
+                    statusClass = "bg-slate-50 border-slate-200 opacity-50";
+                  }
+                }
+
+                return (
+                  <button
+                    key={i}
+                    disabled={showFeedback}
+                    onClick={() => handleOptionClick(i)}
+                    className={`w-full p-4 rounded-xl border-2 text-left font-semibold transition-all flex justify-between items-center ${statusClass}`}
+                  >
+                    <span>{opt}</span>
+                    {icon}
+                  </button>
+                );
+              })}
+            </div>
+
+            {showFeedback && (
+              <button 
+                onClick={handleNext}
+                className="w-full bg-slate-900 hover:bg-black text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-95 animate-in fade-in slide-in-from-bottom-2"
+              >
+                {currentIdx === QUIZ_DATA.length - 1 ? 'Посмотреть результат' : 'Далее'}
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+        )}
+
+        {gameState === 'results' && (
+          <div className="p-10 text-center space-y-8">
+            <div className="relative inline-block">
+              <div className="w-32 h-32 bg-amber-100 rounded-full flex items-center justify-center mx-auto border-4 border-amber-400">
+                <Trophy className="text-amber-500 w-16 h-16" />
+              </div>
+              <div className="absolute -bottom-2 -right-2 bg-indigo-600 text-white text-xs font-black px-3 py-1 rounded-full border-4 border-white">
+                NEW RECORD
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <h2 className="text-4xl font-black text-slate-800">Твой результат: {score} / {QUIZ_DATA.length}</h2>
+              <p className="text-slate-500 text-lg">
+                {score > 20 ? "Да ты просто эксперт по 2025-му! Помнишь даже цвет капюшона кота." : 
+                 score > 10 ? "Неплохо! Ты явно следил за новостями, но мемы про бобров прошли мимо тебя." : 
+                 "Кажется, ты провел этот год в цифровом детоксе. Завидуем!"}
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={handleStart}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2"
+              >
+                <RotateCcw className="w-5 h-5" />
+                Пройти еще раз
+              </button>
+              <button 
+                onClick={() => setGameState('start')}
+                className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-4 rounded-2xl transition-all"
+              >
+                На главную
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      <footer className="mt-8 text-slate-400 text-sm font-medium">
+        © 2025 Quiz App • Итоги года
+      </footer>
     </div>
-
-    <script>
-        const estimateData = [
-            { category: 'Демонтаж', work: 'Демонтаж дверных блоков', unit: 'шт', price_estimate: 500, market_price: '500', discrepancy: 0, status: 'В рынке' },
-            { category: 'Демонтаж', work: 'Демонтаж плинтусов', unit: 'пог.м.', price_estimate: 30, market_price: '50', discrepancy: -20, status: 'Занижена' },
-            { category: 'Демонтаж', work: 'Удаление обоев', unit: 'кв.м.', price_estimate: 100, market_price: '100', discrepancy: 0, status: 'В рынке' },
-            { category: 'Демонтаж', work: 'Демонтаж существующих молдингов', unit: 'пог.м.', price_estimate: 50, market_price: '200', discrepancy: -150, status: 'Занижена' },
-            { category: 'Демонтаж', work: 'Демонтаж напольной и настенной плитки в сан.у', unit: 'м2', price_estimate: 400, market_price: '200', discrepancy: 200, status: 'Завышена' },
-            { category: 'Демонтаж', work: 'Демонтаж напольного покрытия (паркет, ламинат)', unit: 'м2', price_estimate: 200, market_price: '110', discrepancy: 90, status: 'Завышена' },
-            { category: 'Демонтаж', work: 'Демонтаж сантехники и разводки сантехнической', unit: 'шт', price_estimate: 5000, market_price: '1500-5000', discrepancy: '?', status: 'Требует уточнения' },
-            { category: 'Демонтаж', work: 'Демонтаж электрики (розетки, выключатели, с)', unit: 'Шт', price_estimate: 150, market_price: '80', discrepancy: 70, status: 'Завышена' },
-            { category: 'Демонтаж', work: 'Демонтаж существующих перегородок', unit: 'м2', price_estimate: 300, market_price: '300', discrepancy: 0, status: 'В рынке' },
-            { category: 'Общестрой', work: 'Возведение новых перегородок из газосиликатных блоков', unit: 'м2', price_estimate: 800, market_price: '700', discrepancy: 100, status: 'Завышена' },
-            { category: 'Общестрой', work: 'Грунтовка бетоноконтактом', unit: 'м2', price_estimate: 80, market_price: '300', discrepancy: -220, status: 'Занижена' },
-            { category: 'Общестрой', work: 'Штукатурка', unit: 'м2', price_estimate: 850, market_price: '400', discrepancy: 450, status: 'Завышена' },
-            { category: 'Общестрой', work: 'Грунтовка', unit: 'м2', price_estimate: 80, market_price: '80', discrepancy: 0, status: 'В рынке' },
-            { category: 'Общестрой', work: 'Шпатлевка', unit: 'м2', price_estimate: 800, market_price: '450', discrepancy: 350, status: 'Завышена' },
-            { category: 'Общестрой', work: 'Стеклохолст', unit: 'м2', price_estimate: 250, market_price: '250', discrepancy: 0, status: 'В рынке' },
-            { category: 'Общестрой', work: 'Шитрок 2 слоя с шлифовкой', unit: 'м2', price_estimate: 500, market_price: '500', discrepancy: 0, status: 'В рынке' },
-            { category: 'Электрика', work: 'Разводка: розетки', unit: 'шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
-            { category: 'Электрика', work: 'Разводка: выключатели', unit: 'шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
-            { category: 'Электрика', work: 'Разводка: светильники (накладной)', unit: '', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
-            { category: 'Электрика', work: 'Разводка: люстра', unit: 'Шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
-            { category: 'Электрика', work: 'Разводка: диффузор скрытого монтажа', unit: 'Шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
-            { category: 'Электрика', work: 'Разводка: вывод под зеркало с подсветкой', unit: 'шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
-            { category: 'Электрика', work: 'Разводка: Принудительная вентиляция', unit: 'шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
-            { category: 'Сантехника', work: 'Разводка новой сантехнической линии', unit: 'Шт', price_estimate: 4000, market_price: '2000', discrepancy: 2000, status: 'Завышена' },
-            { category: 'Сантехника', work: 'Монтаж разводки инсталяции', unit: 'шт', price_estimate: 8000, market_price: '4400', discrepancy: 3600, status: 'Завышена' },
-            { category: 'Отделка', work: 'Монтаж напольного покрытия из керамогранита', unit: 'м2', price_estimate: 3000, market_price: '2500', discrepancy: 500, status: 'Завышена' },
-            { category: 'Общестрой', work: 'Монтаж опуска из ГКЛ на 186 мм', unit: 'м2', price_estimate: 8571, market_price: '900', discrepancy: 7671, status: 'Завышена' },
-            { category: 'Общестрой', work: 'Штукатурка, шпатлевка, шлифовка (комплекс)', unit: 'м2', price_estimate: 4286, market_price: '2350', discrepancy: 1936, status: 'Завышена' },
-            { category: 'Отделка', work: 'Покраска опуска краской Flugger', unit: 'м2', price_estimate: 2857, market_price: '400', discrepancy: 2457, status: 'Завышена' },
-            { category: 'Отделка', work: 'Окрашивание стен', unit: 'м2', price_estimate: 500, market_price: '400', discrepancy: 100, status: 'Завышена' },
-            { category: 'Отделка', work: 'Затирка плиточных швов', unit: 'м2', price_estimate: 400, market_price: '400', discrepancy: 0, status: 'В рынке' },
-            { category: 'Отделка', work: 'Монтаж молдингов 35*15', unit: 'Π.Μ.', price_estimate: 450, market_price: '420', discrepancy: 30, status: 'Завышена' },
-            { category: 'Отделка', work: 'Монтаж молдингов 9*6', unit: 'Π.Μ.', price_estimate: 500, market_price: '420', discrepancy: 80, status: 'Завышена' },
-            { category: 'Отделка', work: 'Монтаж молдингов 30*22', unit: 'Π.Μ.', price_estimate: 450, market_price: '420', discrepancy: 30, status: 'Завышена' },
-            { category: 'Отделка', work: 'Монтаж средник, уголки', unit: 'шт', price_estimate: 200, market_price: '100', discrepancy: 100, status: 'Завышена' },
-            { category: 'Отделка', work: 'Покраска молдингов, средник, уголки', unit: 'Π.Μ.', price_estimate: 350, market_price: '200', discrepancy: 150, status: 'Завышена' },
-            { category: 'Отделка', work: 'Монтаж декоротивного карниза КТ-64', unit: 'м2', price_estimate: 1000, market_price: '500', discrepancy: 500, status: 'Завышена' },
-            { category: 'Отделка', work: 'Окрашивание карниза', unit: 'м2', price_estimate: 800, market_price: '200', discrepancy: 600, status: 'Завышена' },
-            { category: 'Сантехника', work: 'Монтаж скрытого сантехнического люка', unit: 'шт', price_estimate: 8000, market_price: '3500', discrepancy: 4500, status: 'Завышена' },
-            { category: 'Сантехника', work: 'Монтаж инсталяции', unit: '', price_estimate: 3500, market_price: '4400', discrepancy: -900, status: 'Занижена' },
-            { category: 'Сантехника', work: 'Монтаж ванной', unit: 'шт', price_estimate: 10000, market_price: '5000', discrepancy: 5000, status: 'Завышена' },
-            { category: 'Сантехника', work: 'Монтаж раковины с тумбой подвисной', unit: '', price_estimate: 8000, market_price: '2500', discrepancy: 5500, status: 'Завышена' },
-            { category: 'Сантехника', work: 'Монтаж полотенцесушителя', unit: '', price_estimate: 3500, market_price: '4500', discrepancy: -1000, status: 'Занижена' },
-            { category: 'Электрика', work: 'Гардеробные: Монтаж точечных светильников', unit: 'ШТ', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
-            { category: 'Электрика', work: 'Гардеробные: вывод для подсветки полок', unit: 'шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
-            { category: 'Электрика', work: 'Гардеробные: Монтаж диффузора', unit: 'Шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
-            { category: 'Электрика', work: 'Гардеробные: выключатели', unit: 'шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
-            { category: 'Электрика', work: 'Гардеробные: розетки', unit: 'шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
-            { category: 'Общестрой', work: 'Гардеробные: Штукатурка', unit: 'кв.м.', price_estimate: 850, market_price: '400', discrepancy: 450, status: 'Завышена' },
-            { category: 'Общестрой', work: 'Гардеробные: Шпатлевка (комплекс)', unit: 'м2', price_estimate: 1500, market_price: '650', discrepancy: 850, status: 'Завышена' },
-            { category: 'Отделка', work: 'Гардеробные: Монтаж напольного плинтуса', unit: 'Π.Μ.', price_estimate: 850, market_price: '450', discrepancy: 400, status: 'Завышена' },
-            { category: 'Отделка', work: 'Гардеробные: Окрашивание стен', unit: 'м2', price_estimate: 500, market_price: '400', discrepancy: 100, status: 'Завышена' },
-            { category: 'Отделка', work: 'Гардеробные: Укладка ламината', unit: 'м2', price_estimate: 800, market_price: '500', discrepancy: 300, status: 'Завышена' },
-            { category: 'Сантехника', work: 'Детская: Перенос радиатора', unit: 'шт', price_estimate: 10000, market_price: '4500', discrepancy: 5500, status: 'Завышена' },
-            { category: 'Электрика', work: 'Детская: Розетки (14 шт)', unit: 'шт', price_estimate: 3000, market_price: '1500', discrepancy: 1500, status: 'Завышена' },
-            { category: 'Отделка', work: 'Detskaya: Pokleyka oboev Wall street', unit: 'm2', price_estimate: 1300, market_price: '600', discrepancy: 700, status: 'Завышена' },
-            { category: 'Общестрой', work: 'Коридор: Опуск потолка из ГКЛ', unit: 'м2', price_estimate: 0, market_price: '900', discrepancy: '?', status: 'Ошибка в смете' },
-        ];
-
-        let currentSort = { column: 0, direction: 'asc' };
-
-        function renderTable(data) {
-            const tableBody = document.getElementById('estimate-table-body');
-            tableBody.innerHTML = '';
-            data.forEach(item => {
-                let statusClass = '';
-                switch (item.status) {
-                    case 'Завышена': statusClass = 'tag-overpriced'; break;
-                    case 'Занижена': statusClass = 'tag-underpriced'; break;
-                    case 'В рынке': statusClass = 'tag-market'; break;
-                    case 'Требует уточнения': statusClass = 'tag-clarify'; break;
-                    case 'Ошибка в смете': statusClass = 'tag-error'; break;
-                }
-                
-                const row = `
-                    <tr class="data-row" data-status="${item.status}">
-                        <td class="px-4 py-3 whitespace-normal text-slate-800 font-medium">${item.work}</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-slate-600">${item.price_estimate} ₽</td>
-                        <td class="px-4 py-3 whitespace-nowrap text-slate-600">${item.market_price} ₽</td>
-                        <td class="px-4 py-3 whitespace-nowrap font-medium ${item.discrepancy > 0 ? 'text-red-600' : item.discrepancy < 0 ? 'text-green-600' : 'text-slate-500'}">
-                            ${item.discrepancy > 0 ? '+' : ''}${item.discrepancy} ₽
-                        </td>
-                        <td class="px-4 py-3 whitespace-nowrap"><span class="tag ${statusClass}">${item.status}</span></td>
-                    </tr>
-                `;
-                tableBody.innerHTML += row;
-            });
-        }
-
-        function sortTable(columnIndex, isNumeric = false) {
-            const direction = currentSort.column === columnIndex && currentSort.direction === 'asc' ? 'desc' : 'asc';
-            
-            const sortedData = [...estimateData].sort((a, b) => {
-                const keys = Object.keys(a);
-                const keyA = isNumeric ? parseFloat(a[Object.keys(a)[columnIndex + 1]].toString().replace('?', 0)) : a[Object.keys(a)[columnIndex + 1]];
-                const keyB = isNumeric ? parseFloat(b[Object.keys(b)[columnIndex + 1]].toString().replace('?', 0)) : b[Object.keys(b)[columnIndex + 1]];
-
-                if (keyA < keyB) return direction === 'asc' ? -1 : 1;
-                if (keyA > keyB) return direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-
-            currentSort = { column: columnIndex, direction: direction };
-            renderTable(sortedData);
-        }
-
-        function filterTable(filter) {
-            const rows = document.querySelectorAll('.data-row');
-            rows.forEach(row => {
-                if (filter === 'all' || row.dataset.status === filter) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-        }
-        
-        document.addEventListener('DOMContentLoaded', () => {
-            renderTable(estimateData);
-            
-            document.querySelectorAll('.filter-btn').forEach(button => {
-                button.addEventListener('click', (e) => {
-                    filterTable(e.target.dataset.filter);
-                });
-            });
-
-            const categoryCosts = estimateData.reduce((acc, item) => {
-                const category = item.category || 'Прочее';
-                // Assuming price_estimate is the base for cost distribution
-                const cost = parseFloat(item.price_estimate); 
-                if (!isNaN(cost)) {
-                    acc[category] = (acc[category] || 0) + cost;
-                }
-                return acc;
-            }, {});
-            
-            const ctx = document.getElementById('costDistributionChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(categoryCosts),
-                    datasets: [{
-                        label: 'Стоимость работ',
-                        data: Object.values(categoryCosts),
-                        backgroundColor: [
-                            '#334155', // slate-700
-                            '#475569', // slate-600
-                            '#64748b', // slate-500
-                            '#94a3b8', // slate-400
-                            '#f59e0b', // amber-500
-                            '#fbbf24', // amber-400
-                            '#fcd34d'  // amber-300
-                        ],
-                        borderColor: '#f8fafc', // slate-50
-                        borderWidth: 4,
-                        hoverOffset: 10
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                font: {
-                                    size: 12,
-                                    family: 'Inter'
-                                },
-                                color: '#475569'
-                            }
-                        },
-                        tooltip: {
-                             callbacks: {
-                                label: function(context) {
-                                    let label = context.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    if (context.parsed !== null) {
-                                        label += new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(context.parsed);
-                                    }
-                                    return label;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        });
-    </script>
-</body>
-</html>
+  );
+}
